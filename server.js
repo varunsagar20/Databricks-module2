@@ -45,8 +45,8 @@ async function summarizeStory(story) {
   const sourceText = articleText || story.text || "";
 
   const prompt = sourceText
-    ? `Story title: "${story.title}"\n\nArticle content (may be partial or malformed):\n${sourceText}\n\nWrite a single concise 1-2 sentence summary of what this story is about, for someone deciding whether to click through.`
-    : `Story title: "${story.title}"\n\nNo article content is available. Write a single concise sentence guessing what this story is about, based only on the title.`;
+    ? `Story title: "${story.title}"\n\nArticle content (may be partial or malformed):\n${sourceText}\n\nFrom this content, infer the single industry most relevant to this story (e.g. Healthcare, Finance, Retail, Manufacturing, Cybersecurity, etc). Then write a response in exactly this format:\n\n"Why this matters for [Industry]: <sentence 1>. <sentence 2>."\n\nThe two sentences should explain concretely why this story is relevant to that industry. Output only that single line, nothing else.`
+    : `Story title: "${story.title}"\n\nNo article content is available. From the title alone, infer the single industry most relevant to this story (e.g. Healthcare, Finance, Retail, Manufacturing, Cybersecurity, etc). Then write a response in exactly this format:\n\n"Why this matters for [Industry]: <sentence 1>. <sentence 2>."\n\nThe two sentences should explain your best guess at why this story is relevant to that industry. Output only that single line, nothing else.`;
 
   try {
     const response = await ai.models.generateContent({
