@@ -85,21 +85,23 @@ async function analyzeStory(story) {
 
 async function getStoriesWithSummaries() {
   const stories = await fetchTopStories();
-  return Promise.all(
-    stories.map(async (story) => {
-      const { industry, summary } = await analyzeStory(story);
-      return {
-        id: story.id,
-        title: story.title,
-        url: story.url || `https://news.ycombinator.com/item?id=${story.id}`,
-        score: story.score,
-        by: story.by,
-        descendants: story.descendants || 0,
-        industry,
-        summary,
-      };
-    })
-  );
+  const results = [];
+  // Sequential, not Promise.all: analyzeStory() calls Gemini, and running all
+  // 5 at once was bursting past the API's rate limit.
+  for (const story of stories) {
+    const { industry, summary } = await analyzeStory(story);
+    results.push({
+      id: story.id,
+      title: story.title,
+      url: story.url || `https://news.ycombinator.com/item?id=${story.id}`,
+      score: story.score,
+      by: story.by,
+      descendants: story.descendants || 0,
+      industry,
+      summary,
+    });
+  }
+  return results;
 }
 
 const CONTENT_TYPES = { ".js": "text/javascript", ".css": "text/css", ".html": "text/html" };
