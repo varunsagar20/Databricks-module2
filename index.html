@@ -169,6 +169,16 @@
     border-left: 3px solid var(--accent);
   }
 
+  .summary-label {
+    display: block;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.02em;
+    text-transform: uppercase;
+    color: var(--accent-dark);
+    margin-bottom: 3px;
+  }
+
   .summary-error {
     border-left-color: var(--error);
     background: var(--error-bg);
@@ -228,7 +238,7 @@
           </div>
         `;
       }
-      return `<div class="summary">${escapeHtml(story.summary)}</div>`;
+      return `<div class="summary"><span class="summary-label">Why this matters -</span>${escapeHtml(story.summary)}</div>`;
     }
 
     function renderStory(story) {
