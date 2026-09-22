@@ -39,6 +39,12 @@
   .meta a {
     color: #666;
   }
+  .summary {
+    font-size: 14px;
+    color: #333;
+    margin-top: 6px;
+    line-height: 1.4;
+  }
   #status {
     color: #666;
   }
@@ -46,37 +52,39 @@
 </head>
 <body>
   <h1>Top 5 Hacker News Stories</h1>
-  <p id="status">Loading...</p>
+  <p id="status">Loading stories and generating summaries...</p>
   <ol id="stories"></ol>
 
   <script>
-    const API_BASE = "https://hacker-news.firebaseio.com/v0";
-    const TOP_STORY_COUNT = 5;
+    function escapeHtml(str) {
+      const div = document.createElement("div");
+      div.textContent = str;
+      return div.innerHTML;
+    }
 
     async function loadTopStories() {
       const statusEl = document.getElementById("status");
       const listEl = document.getElementById("stories");
 
       try {
-        const idsResponse = await fetch(`${API_BASE}/topstories.json`);
-        const ids = await idsResponse.json();
-        const topIds = ids.slice(0, TOP_STORY_COUNT);
-
-        const stories = await Promise.all(
-          topIds.map(id => fetch(`${API_BASE}/item/${id}.json`).then(res => res.json()))
-        );
+        const response = await fetch("/api/stories");
+        if (!response.ok) {
+          throw new Error((await response.json()).error || response.statusText);
+        }
+        const stories = await response.json();
 
         listEl.innerHTML = stories.map(story => `
           <li>
-            <a class="title" href="${story.url || `https://news.ycombinator.com/item?id=${story.id}`}" target="_blank" rel="noopener">
-              ${story.title}
+            <a class="title" href="${escapeHtml(story.url)}" target="_blank" rel="noopener">
+              ${escapeHtml(story.title)}
             </a>
             <div class="meta">
-              ${story.score} points by ${story.by} ·
+              ${story.score} points by ${escapeHtml(story.by)} ·
               <a href="https://news.ycombinator.com/item?id=${story.id}" target="_blank" rel="noopener">
-                ${story.descendants || 0} comments
+                ${story.descendants} comments
               </a>
             </div>
+            <div class="summary">${escapeHtml(story.summary)}</div>
           </li>
         `).join("");
 

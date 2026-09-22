@@ -1,0 +1,13 @@
+{
+  "name": "hn-top-stories",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Fetches the top 5 Hacker News stories and generates LLM summaries",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "@google/genai": "^1.0.0"
+  }
+}
