@@ -2,7 +2,7 @@ import http from "node:http";
 import fs from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { GoogleGenAI } from "@google/genai";
+import { GoogleGenAI, Type } from "@google/genai";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const PORT = process.env.PORT || 3000;
@@ -40,39 +40,65 @@ async function fetchArticleText(url) {
   }
 }
 
-async function summarizeStory(story) {
+const INDUSTRY_RESPONSE_SCHEMA = {
+  type: Type.OBJECT,
+  properties: {
+    industry: {
+      type: Type.STRING,
+      description: "The single industry most relevant to this story, e.g. Healthcare, Finance, Retail, Manufacturing, Cybersecurity.",
+    },
+    summary: {
+      type: Type.STRING,
+      description: "Exactly two sentences explaining concretely why this story matters for that industry.",
+    },
+  },
+  required: ["industry", "summary"],
+};
+
+async function analyzeStory(story) {
   const articleText = story.url ? await fetchArticleText(story.url) : null;
   const sourceText = articleText || story.text || "";
 
   const prompt = sourceText
-    ? `Story title: "${story.title}"\n\nArticle content (may be partial or malformed):\n${sourceText}\n\nWrite a single concise 1-2 sentence summary of what this story is about, for someone deciding whether to click through.`
-    : `Story title: "${story.title}"\n\nNo article content is available. Write a single concise sentence guessing what this story is about, based only on the title.`;
+    ? `Story title: "${story.title}"\n\nArticle content (may be partial or malformed):\n${sourceText}\n\nInfer the single industry most relevant to this story, and write exactly two sentences explaining concretely why this story matters for that industry.`
+    : `Story title: "${story.title}"\n\nNo article content is available. From the title alone, infer the single industry most relevant to this story, and write exactly two sentences giving your best guess at why this story matters for that industry.`;
 
   try {
     const response = await ai.models.generateContent({
       model: GEMINI_MODEL,
       contents: prompt,
+      config: {
+        responseMimeType: "application/json",
+        responseSchema: INDUSTRY_RESPONSE_SCHEMA,
+      },
     });
-    const text = response.text;
-    return text ? text.trim() : "Summary unavailable.";
+    const parsed = JSON.parse(response.text);
+    return {
+      industry: parsed.industry || "Unknown",
+      summary: parsed.summary || "Summary unavailable.",
+    };
   } catch (err) {
-    console.error(`Summary failed for story ${story.id}:`, err.message);
-    return "Summary unavailable.";
+    console.error(`Analysis failed for story ${story.id}:`, err.message);
+    return { industry: "Unknown", summary: "Summary unavailable." };
   }
 }
 
 async function getStoriesWithSummaries() {
   const stories = await fetchTopStories();
   return Promise.all(
-    stories.map(async (story) => ({
-      id: story.id,
-      title: story.title,
-      url: story.url || `https://news.ycombinator.com/item?id=${story.id}`,
-      score: story.score,
-      by: story.by,
-      descendants: story.descendants || 0,
-      summary: await summarizeStory(story),
-    }))
+    stories.map(async (story) => {
+      const { industry, summary } = await analyzeStory(story);
+      return {
+        id: story.id,
+        title: story.title,
+        url: story.url || `https://news.ycombinator.com/item?id=${story.id}`,
+        score: story.score,
+        by: story.by,
+        descendants: story.descendants || 0,
+        industry,
+        summary,
+      };
+    })
   );
 }
 
