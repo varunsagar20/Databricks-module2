@@ -9,6 +9,7 @@ const PORT = process.env.PORT || 3000;
 const STORY_COUNT = 5;
 const HN_API = "https://hacker-news.firebaseio.com/v0";
 const ARTICLE_FETCH_TIMEOUT_MS = 5000;
+const ARTICLE_TEXT_MAX_CHARS = 500;
 const GEMINI_MODEL = process.env.GEMINI_MODEL || "gemini-flash-latest";
 
 const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
@@ -37,7 +38,7 @@ async function fetchArticleText(url) {
       .replace(/<[^>]+>/g, " ")
       .replace(/\s+/g, " ")
       .trim()
-      .slice(0, 4000);
+      .slice(0, ARTICLE_TEXT_MAX_CHARS);
     console.log(`[HN source] Extracted ${text.length} chars from ${url}. Preview: ${JSON.stringify(text.slice(0, 200))}`);
     return text;
   } catch (err) {
