@@ -22,13 +22,16 @@ Then open http://localhost:3000 in your browser.
 - `server.js` fetches the top 5 story IDs from `https://hacker-news.firebaseio.com/v0/topstories.json`,
   loads each story's details, best-effort fetches the linked article text, and
   asks Gemini (`gemini-flash-latest`) for structured JSON output — an inferred
-  `industry` and a 2-sentence relevance `summary` — per story.
-- `index.html` calls the local `/api/stories` endpoint and renders each
-  story's title, points/author, comment count, a target-industry badge next
-  to the comment count, and the relevance summary below. If Gemini fails to
-  generate a summary for a story, that story instead shows a clear
-  "Gemini failed to generate a summary" message with a direct link to the
-  article, so the page always degrades gracefully rather than showing a
+  `industry` and a 2-sentence relevance `summary` — per story. `/api/stories`
+  streams each story as a line of NDJSON as soon as it's ready, instead of
+  waiting for all 5 to finish and sending one big JSON array.
+- `index.html` reads that stream and appends each story's card to the page
+  the moment it arrives — title, points/author, comment count, a
+  target-industry badge, and the relevance summary — with a live
+  "Loaded N of 5 stories..." status while the rest are still in flight. If
+  Gemini fails to generate a summary for a story, that story instead shows a
+  clear "Gemini failed to generate a summary" message with a direct link to
+  the article, so the page always degrades gracefully rather than showing a
   broken or missing summary.
 
 No credentials are needed for the Hacker News API. You do need a

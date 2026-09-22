@@ -83,14 +83,19 @@ async function analyzeStory(story) {
   }
 }
 
-async function getStoriesWithSummaries() {
+async function streamStoriesWithSummaries(res) {
+  // fetchTopStories() runs before headers are sent, so a failure here can
+  // still produce a proper error status instead of a broken stream.
   const stories = await fetchTopStories();
-  const results = [];
+  res.writeHead(200, { "Content-Type": "application/x-ndjson" });
+
   // Sequential, not Promise.all: analyzeStory() calls Gemini, and running all
-  // 5 at once was bursting past the API's rate limit.
+  // 5 at once was bursting past the API's rate limit. Each story is written
+  // to the response as soon as it's ready, so the page can render it
+  // immediately instead of waiting for all 5 to finish.
   for (const story of stories) {
     const { industry, summary, summaryFailed } = await analyzeStory(story);
-    results.push({
+    res.write(JSON.stringify({
       id: story.id,
       title: story.title,
       url: story.url || `https://news.ycombinator.com/item?id=${story.id}`,
@@ -100,9 +105,9 @@ async function getStoriesWithSummaries() {
       industry,
       summary,
       summaryFailed,
-    });
+    }) + "\n");
   }
-  return results;
+  res.end();
 }
 
 const CONTENT_TYPES = { ".js": "text/javascript", ".css": "text/css", ".html": "text/html" };
@@ -110,12 +115,14 @@ const CONTENT_TYPES = { ".js": "text/javascript", ".css": "text/css", ".html": "
 const server = http.createServer(async (req, res) => {
   if (req.url === "/api/stories") {
     try {
-      const stories = await getStoriesWithSummaries();
-      res.writeHead(200, { "Content-Type": "application/json" });
-      res.end(JSON.stringify(stories));
+      await streamStoriesWithSummaries(res);
     } catch (err) {
-      res.writeHead(500, { "Content-Type": "application/json" });
-      res.end(JSON.stringify({ error: err.message }));
+      if (res.headersSent) {
+        res.end();
+      } else {
+        res.writeHead(500, { "Content-Type": "application/json" });
+        res.end(JSON.stringify({ error: err.message }));
+      }
     }
     return;
   }

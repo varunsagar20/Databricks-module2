@@ -216,6 +216,8 @@
       return div.innerHTML;
     }
 
+    const EXPECTED_STORY_COUNT = 5;
+
     function renderSummarySection(story) {
       if (story.summaryFailed) {
         return `
@@ -229,36 +231,72 @@
       return `<div class="summary">${escapeHtml(story.summary)}</div>`;
     }
 
+    function renderStory(story) {
+      return `
+        <li>
+          <a class="title" href="${escapeHtml(story.url)}" target="_blank" rel="noopener">
+            ${escapeHtml(story.title)}
+          </a>
+          <div class="meta">
+            ${story.score} points by ${escapeHtml(story.by)} ·
+            <a href="https://news.ycombinator.com/item?id=${story.id}" target="_blank" rel="noopener">
+              ${story.descendants} comments
+            </a>
+            ${story.summaryFailed ? "" : `<span class="industry">${escapeHtml(story.industry)}</span>`}
+          </div>
+          ${renderSummarySection(story)}
+        </li>
+      `;
+    }
+
     async function loadTopStories() {
       const statusEl = document.getElementById("status");
       const listEl = document.getElementById("stories");
+      let loadedCount = 0;
 
       try {
         const response = await fetch("/api/stories");
         if (!response.ok) {
           throw new Error((await response.json()).error || response.statusText);
         }
-        const stories = await response.json();
 
-        listEl.innerHTML = stories.map(story => `
-          <li>
-            <a class="title" href="${escapeHtml(story.url)}" target="_blank" rel="noopener">
-              ${escapeHtml(story.title)}
-            </a>
-            <div class="meta">
-              ${story.score} points by ${escapeHtml(story.by)} ·
-              <a href="https://news.ycombinator.com/item?id=${story.id}" target="_blank" rel="noopener">
-                ${story.descendants} comments
-              </a>
-              ${story.summaryFailed ? "" : `<span class="industry">${escapeHtml(story.industry)}</span>`}
-            </div>
-            ${renderSummarySection(story)}
-          </li>
-        `).join("");
+        // The server streams one JSON object per line (NDJSON) as each
+        // story finishes, instead of one big array at the end, so each
+        // story appears as soon as it's ready rather than all at once.
+        const reader = response.body.getReader();
+        const decoder = new TextDecoder();
+        let buffer = "";
 
-        statusEl.remove();
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          buffer += decoder.decode(value, { stream: true });
+
+          let newlineIndex;
+          while ((newlineIndex = buffer.indexOf("\n")) !== -1) {
+            const line = buffer.slice(0, newlineIndex).trim();
+            buffer = buffer.slice(newlineIndex + 1);
+            if (!line) continue;
+
+            const story = JSON.parse(line);
+            loadedCount++;
+            listEl.insertAdjacentHTML("beforeend", renderStory(story));
+            statusEl.textContent = `Loaded ${loadedCount} of ${EXPECTED_STORY_COUNT} stories...`;
+          }
+        }
+
+        if (loadedCount === 0) {
+          statusEl.textContent = "No stories returned.";
+        } else {
+          statusEl.remove();
+        }
       } catch (err) {
-        statusEl.textContent = "Failed to load stories: " + err.message;
+        if (loadedCount === 0) {
+          statusEl.textContent = "Failed to load stories: " + err.message;
+        } else {
+          console.error("Failed to load remaining stories:", err);
+          statusEl.textContent = `Loaded ${loadedCount} of ${EXPECTED_STORY_COUNT} stories — the rest failed to load.`;
+        }
       }
     }
 
