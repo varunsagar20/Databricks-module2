@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Top 5 Hacker News Stories</title>
+<style>
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Arial, sans-serif;
+    max-width: 700px;
+    margin: 40px auto;
+    padding: 0 16px;
+    background: #f6f6ef;
+    color: #222;
+  }
+  h1 {
+    font-size: 22px;
+    border-bottom: 2px solid #ff6600;
+    padding-bottom: 8px;
+  }
+  ol {
+    padding-left: 20px;
+  }
+  li {
+    margin-bottom: 16px;
+  }
+  a.title {
+    color: #222;
+    font-weight: bold;
+    text-decoration: none;
+  }
+  a.title:hover {
+    text-decoration: underline;
+  }
+  .meta {
+    font-size: 13px;
+    color: #666;
+    margin-top: 2px;
+  }
+  .meta a {
+    color: #666;
+  }
+  #status {
+    color: #666;
+  }
+</style>
+</head>
+<body>
+  <h1>Top 5 Hacker News Stories</h1>
+  <p id="status">Loading...</p>
+  <ol id="stories"></ol>
+
+  <script>
+    const API_BASE = "https://hacker-news.firebaseio.com/v0";
+    const TOP_STORY_COUNT = 5;
+
+    async function loadTopStories() {
+      const statusEl = document.getElementById("status");
+      const listEl = document.getElementById("stories");
+
+      try {
+        const idsResponse = await fetch(`${API_BASE}/topstories.json`);
+        const ids = await idsResponse.json();
+        const topIds = ids.slice(0, TOP_STORY_COUNT);
+
+        const stories = await Promise.all(
+          topIds.map(id => fetch(`${API_BASE}/item/${id}.json`).then(res => res.json()))
+        );
+
+        listEl.innerHTML = stories.map(story => `
+          <li>
+            <a class="title" href="${story.url || `https://news.ycombinator.com/item?id=${story.id}`}" target="_blank" rel="noopener">
+              ${story.title}
+            </a>
+            <div class="meta">
+              ${story.score} points by ${story.by} ·
+              <a href="https://news.ycombinator.com/item?id=${story.id}" target="_blank" rel="noopener">
+                ${story.descendants || 0} comments
+              </a>
+            </div>
+          </li>
+        `).join("");
+
+        statusEl.remove();
+      } catch (err) {
+        statusEl.textContent = "Failed to load stories: " + err.message;
+      }
+    }
+
+    loadTopStories();
+  </script>
+</body>
+</html>
