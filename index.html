@@ -39,6 +39,17 @@
   .meta a {
     color: #666;
   }
+  .industry {
+    display: inline-block;
+    font-size: 12px;
+    font-weight: bold;
+    color: #ff6600;
+    background: #fff2e8;
+    border: 1px solid #ffd9b3;
+    border-radius: 3px;
+    padding: 1px 6px;
+    margin-left: 6px;
+  }
   .summary {
     font-size: 14px;
     color: #333;
@@ -85,6 +96,7 @@
               <a href="https://news.ycombinator.com/item?id=${story.id}" target="_blank" rel="noopener">
                 ${story.descendants} comments
               </a>
+              <span class="industry">${escapeHtml(story.industry)}</span>
             </div>
             <div class="summary">${escapeHtml(story.summary)}</div>
           </li>
