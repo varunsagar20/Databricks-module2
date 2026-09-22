@@ -27,15 +27,21 @@ async function fetchArticleText(url) {
     const timeout = setTimeout(() => controller.abort(), ARTICLE_FETCH_TIMEOUT_MS);
     const res = await fetch(url, { signal: controller.signal });
     clearTimeout(timeout);
+    if (!res.ok) {
+      console.warn(`[HN source] GET ${url} returned HTTP ${res.status} — using body anyway, it may not be real article text.`);
+    }
     const html = await res.text();
-    return html
+    const text = html
       .replace(/<script[\s\S]*?<\/script>/gi, " ")
       .replace(/<style[\s\S]*?<\/style>/gi, " ")
       .replace(/<[^>]+>/g, " ")
       .replace(/\s+/g, " ")
       .trim()
       .slice(0, 4000);
-  } catch {
+    console.log(`[HN source] Extracted ${text.length} chars from ${url}. Preview: ${JSON.stringify(text.slice(0, 200))}`);
+    return text;
+  } catch (err) {
+    console.warn(`[HN source] Failed to fetch article at ${url}: ${err.name}: ${err.message}`);
     return null;
   }
 }
@@ -56,12 +62,17 @@ const INDUSTRY_RESPONSE_SCHEMA = {
 };
 
 async function analyzeStory(story) {
+  console.log(`[HN source] Story ${story.id} "${story.title}" — url: ${story.url || "(none, self-post)"}`);
+
   const articleText = story.url ? await fetchArticleText(story.url) : null;
   const sourceText = articleText || story.text || "";
+  const sourceKind = articleText ? "article" : story.text ? "HN self-post text" : "title only";
+  console.log(`[HN source] Story ${story.id}: using ${sourceKind} as Gemini input (${sourceText.length} chars).`);
 
   const prompt = sourceText
     ? `Story title: "${story.title}"\n\nArticle content (may be partial or malformed):\n${sourceText}\n\nInfer the single industry most relevant to this story, and write exactly two sentences explaining concretely why this story matters for that industry.`
     : `Story title: "${story.title}"\n\nNo article content is available. From the title alone, infer the single industry most relevant to this story, and write exactly two sentences giving your best guess at why this story matters for that industry.`;
+  console.log(`[Gemini] Story ${story.id}: sending ${prompt.length}-char prompt to model "${GEMINI_MODEL}".`);
 
   try {
     const response = await ai.models.generateContent({
@@ -72,13 +83,14 @@ async function analyzeStory(story) {
         responseSchema: INDUSTRY_RESPONSE_SCHEMA,
       },
     });
+    console.log(`[Gemini] Story ${story.id}: received ${response.text?.length ?? 0}-char response.`);
     const parsed = JSON.parse(response.text);
     if (!parsed.industry || !parsed.summary) {
-      throw new Error("Gemini response was missing industry or summary");
+      throw new Error(`Gemini response was missing industry or summary. Raw response: ${response.text}`);
     }
     return { industry: parsed.industry, summary: parsed.summary, summaryFailed: false };
   } catch (err) {
-    console.error(`Analysis failed for story ${story.id}:`, err.message);
+    console.error(`[Gemini] Story ${story.id} FAILED — model: "${GEMINI_MODEL}", name: ${err.name}, status: ${err.status ?? "n/a"}, message: ${err.message}`);
     return { industry: null, summary: null, summaryFailed: true };
   }
 }
