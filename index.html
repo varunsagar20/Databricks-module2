@@ -58,6 +58,14 @@
     padding-left: 10px;
     border-left: 3px solid #ff6600;
   }
+  .summary-error {
+    border-left-color: #c0392b;
+    color: #7a2a20;
+  }
+  .summary-error a {
+    color: #7a2a20;
+    word-break: break-all;
+  }
   #status {
     color: #666;
   }
@@ -73,6 +81,19 @@
       const div = document.createElement("div");
       div.textContent = str;
       return div.innerHTML;
+    }
+
+    function renderSummarySection(story) {
+      if (story.summaryFailed) {
+        return `
+          <div class="summary summary-error">
+            ⚠️ Google's Gemini API failed to generate a summary for this story.
+            Read the article directly:
+            <a href="${escapeHtml(story.url)}" target="_blank" rel="noopener">${escapeHtml(story.url)}</a>
+          </div>
+        `;
+      }
+      return `<div class="summary">${escapeHtml(story.summary)}</div>`;
     }
 
     async function loadTopStories() {
@@ -96,9 +117,9 @@
               <a href="https://news.ycombinator.com/item?id=${story.id}" target="_blank" rel="noopener">
                 ${story.descendants} comments
               </a>
-              <span class="industry">${escapeHtml(story.industry)}</span>
+              ${story.summaryFailed ? "" : `<span class="industry">${escapeHtml(story.industry)}</span>`}
             </div>
-            <div class="summary">${escapeHtml(story.summary)}</div>
+            ${renderSummarySection(story)}
           </li>
         `).join("");
 
