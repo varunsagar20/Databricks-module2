@@ -2,15 +2,16 @@ import http from "node:http";
 import fs from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import Anthropic from "@anthropic-ai/sdk";
+import { GoogleGenAI } from "@google/genai";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const PORT = process.env.PORT || 3000;
 const STORY_COUNT = 5;
 const HN_API = "https://hacker-news.firebaseio.com/v0";
 const ARTICLE_FETCH_TIMEOUT_MS = 5000;
+const GEMINI_MODEL = process.env.GEMINI_MODEL || "gemini-flash-latest";
 
-const client = new Anthropic();
+const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
 
 async function fetchTopStories() {
   const idsRes = await fetch(`${HN_API}/topstories.json`);
@@ -48,13 +49,12 @@ async function summarizeStory(story) {
     : `Story title: "${story.title}"\n\nNo article content is available. Write a single concise sentence guessing what this story is about, based only on the title.`;
 
   try {
-    const response = await client.messages.create({
-      model: "claude-opus-5",
-      max_tokens: 200,
-      messages: [{ role: "user", content: prompt }],
+    const response = await ai.models.generateContent({
+      model: GEMINI_MODEL,
+      contents: prompt,
     });
-    const textBlock = response.content.find((b) => b.type === "text");
-    return textBlock ? textBlock.text.trim() : "Summary unavailable.";
+    const text = response.text;
+    return text ? text.trim() : "Summary unavailable.";
   } catch (err) {
     console.error(`Summary failed for story ${story.id}:`, err.message);
     return "Summary unavailable.";
