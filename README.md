@@ -25,7 +25,11 @@ Then open http://localhost:3000 in your browser.
   `industry` and a 2-sentence relevance `summary` — per story.
 - `index.html` calls the local `/api/stories` endpoint and renders each
   story's title, points/author, comment count, a target-industry badge next
-  to the comment count, and the relevance summary below.
+  to the comment count, and the relevance summary below. If Gemini fails to
+  generate a summary for a story, that story instead shows a clear
+  "Gemini failed to generate a summary" message with a direct link to the
+  article, so the page always degrades gracefully rather than showing a
+  broken or missing summary.
 
 No credentials are needed for the Hacker News API. You do need a
 `GEMINI_API_KEY` (from Google AI Studio: https://aistudio.google.com/apikey)

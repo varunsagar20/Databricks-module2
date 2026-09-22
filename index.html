@@ -2,77 +2,231 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Top 5 Hacker News Stories</title>
 <style>
+  :root {
+    --accent: #ff6600;
+    --accent-dark: #d65400;
+    --ink: #1a1a1a;
+    --ink-soft: #5b5b5b;
+    --bg: #f4f4f2;
+    --card: #ffffff;
+    --border: #e6e4df;
+    --error: #c0392b;
+    --error-bg: #fdf1ef;
+  }
+
+  * {
+    box-sizing: border-box;
+  }
+
   body {
     font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Arial, sans-serif;
-    max-width: 700px;
-    margin: 40px auto;
-    padding: 0 16px;
-    background: #f6f6ef;
-    color: #222;
+    max-width: 720px;
+    margin: 0 auto;
+    padding: 40px 16px 64px;
+    background: var(--bg);
+    color: var(--ink);
+    line-height: 1.5;
   }
+
+  header {
+    margin-bottom: 24px;
+  }
+
   h1 {
-    font-size: 22px;
-    border-bottom: 2px solid #ff6600;
-    padding-bottom: 8px;
+    font-size: 26px;
+    margin: 0 0 4px;
+    letter-spacing: -0.01em;
   }
-  ol {
-    padding-left: 20px;
+
+  .tagline {
+    color: var(--ink-soft);
+    font-size: 14px;
+    margin: 0;
   }
-  li {
-    margin-bottom: 16px;
+
+  .about {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 16px 18px;
+    margin: 20px 0 28px;
+    font-size: 14px;
+    color: var(--ink-soft);
   }
-  a.title {
-    color: #222;
-    font-weight: bold;
-    text-decoration: none;
+
+  .about p {
+    margin: 0 0 8px;
   }
-  a.title:hover {
-    text-decoration: underline;
+
+  .about p:last-child {
+    margin-bottom: 0;
   }
-  .meta {
+
+  .byline {
     font-size: 13px;
-    color: #666;
-    margin-top: 2px;
+    color: var(--ink-soft);
   }
-  .meta a {
-    color: #666;
+
+  .byline strong {
+    color: var(--ink);
   }
-  .industry {
-    display: inline-block;
+
+  #status {
+    color: var(--ink-soft);
+    font-size: 14px;
+  }
+
+  ol#stories {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    counter-reset: story;
+  }
+
+  ol#stories li {
+    counter-increment: story;
+    position: relative;
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 16px 18px 16px 52px;
+    margin-bottom: 14px;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.03);
+    transition: box-shadow 0.15s ease, transform 0.15s ease;
+  }
+
+  ol#stories li:hover {
+    box-shadow: 0 4px 14px rgba(0, 0, 0, 0.07);
+    transform: translateY(-1px);
+  }
+
+  ol#stories li::before {
+    content: counter(story);
+    position: absolute;
+    left: 16px;
+    top: 16px;
+    width: 22px;
+    height: 22px;
+    border-radius: 50%;
+    background: var(--accent);
+    color: #fff;
     font-size: 12px;
     font-weight: bold;
-    color: #ff6600;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  a.title {
+    color: var(--ink);
+    font-weight: 600;
+    font-size: 15px;
+    text-decoration: none;
+  }
+
+  a.title:hover {
+    color: var(--accent-dark);
+    text-decoration: underline;
+  }
+
+  .meta {
+    font-size: 13px;
+    color: var(--ink-soft);
+    margin-top: 4px;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 4px;
+  }
+
+  .meta a {
+    color: var(--ink-soft);
+  }
+
+  .industry {
+    display: inline-block;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.02em;
+    text-transform: uppercase;
+    color: var(--accent-dark);
     background: #fff2e8;
     border: 1px solid #ffd9b3;
-    border-radius: 3px;
-    padding: 1px 6px;
-    margin-left: 6px;
+    border-radius: 4px;
+    padding: 2px 7px;
+    margin-left: 4px;
   }
+
   .summary {
     font-size: 14px;
     color: #333;
-    margin-top: 6px;
-    line-height: 1.4;
-    padding-left: 10px;
-    border-left: 3px solid #ff6600;
+    margin-top: 10px;
+    line-height: 1.5;
+    padding-left: 12px;
+    border-left: 3px solid var(--accent);
   }
-  #status {
-    color: #666;
+
+  .summary-error {
+    border-left-color: var(--error);
+    background: var(--error-bg);
+    color: var(--error);
+    padding: 8px 10px 8px 10px;
+    border-left-width: 3px;
+    border-radius: 0 6px 6px 0;
+  }
+
+  .summary-error a {
+    color: var(--error);
+    overflow-wrap: break-word;
+    font-weight: 600;
+  }
+
+  footer {
+    margin-top: 32px;
+    font-size: 12px;
+    color: var(--ink-soft);
+    text-align: center;
   }
 </style>
 </head>
 <body>
-  <h1>Top 5 Hacker News Stories</h1>
+  <header>
+    <h1>Top 5 Hacker News Stories</h1>
+    <p class="tagline">Live from Hacker News, with an industry-relevance summary for each story.</p>
+  </header>
+
+  <section class="about">
+    <p>This page fetches the current top 5 stories from Hacker News and, for each one, asks Google's Gemini to infer the industry it's most relevant to and explain why it matters for that industry.</p>
+    <p>Everything runs from a small local Node server — the Hacker News API needs no credentials, and Gemini calls happen server-side so no API key ever reaches the browser.</p>
+    <p class="byline">Created by: <strong>Varun Sagar</strong></p>
+  </section>
+
   <p id="status">Loading stories and generating summaries...</p>
   <ol id="stories"></ol>
+
+  <footer>Data via the Hacker News API · Summaries via Google Gemini</footer>
 
   <script>
     function escapeHtml(str) {
       const div = document.createElement("div");
       div.textContent = str;
       return div.innerHTML;
+    }
+
+    function renderSummarySection(story) {
+      if (story.summaryFailed) {
+        return `
+          <div class="summary summary-error">
+            ⚠️ Google's Gemini API failed to generate a summary for this story.
+            Read the article directly:
+            <a href="${escapeHtml(story.url)}" target="_blank" rel="noopener">${escapeHtml(story.url)}</a>
+          </div>
+        `;
+      }
+      return `<div class="summary">${escapeHtml(story.summary)}</div>`;
     }
 
     async function loadTopStories() {
@@ -96,9 +250,9 @@
               <a href="https://news.ycombinator.com/item?id=${story.id}" target="_blank" rel="noopener">
                 ${story.descendants} comments
               </a>
-              <span class="industry">${escapeHtml(story.industry)}</span>
+              ${story.summaryFailed ? "" : `<span class="industry">${escapeHtml(story.industry)}</span>`}
             </div>
-            <div class="summary">${escapeHtml(story.summary)}</div>
+            ${renderSummarySection(story)}
           </li>
         `).join("");
 

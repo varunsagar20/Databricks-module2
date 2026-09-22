@@ -73,13 +73,13 @@ async function analyzeStory(story) {
       },
     });
     const parsed = JSON.parse(response.text);
-    return {
-      industry: parsed.industry || "Unknown",
-      summary: parsed.summary || "Summary unavailable.",
-    };
+    if (!parsed.industry || !parsed.summary) {
+      throw new Error("Gemini response was missing industry or summary");
+    }
+    return { industry: parsed.industry, summary: parsed.summary, summaryFailed: false };
   } catch (err) {
     console.error(`Analysis failed for story ${story.id}:`, err.message);
-    return { industry: "Unknown", summary: "Summary unavailable." };
+    return { industry: null, summary: null, summaryFailed: true };
   }
 }
 
@@ -89,7 +89,7 @@ async function getStoriesWithSummaries() {
   // Sequential, not Promise.all: analyzeStory() calls Gemini, and running all
   // 5 at once was bursting past the API's rate limit.
   for (const story of stories) {
-    const { industry, summary } = await analyzeStory(story);
+    const { industry, summary, summaryFailed } = await analyzeStory(story);
     results.push({
       id: story.id,
       title: story.title,
@@ -99,6 +99,7 @@ async function getStoriesWithSummaries() {
       descendants: story.descendants || 0,
       industry,
       summary,
+      summaryFailed,
     });
   }
   return results;
