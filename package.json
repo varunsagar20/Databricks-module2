@@ -8,6 +8,7 @@
     "start": "node server.js"
   },
   "dependencies": {
-    "@google/genai": "^1.0.0"
+    "@anthropic-ai/sdk": "^0.128.0",
+    "zod": "^3.24.0"
   }
 }

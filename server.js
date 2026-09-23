@@ -2,7 +2,9 @@ import http from "node:http";
 import fs from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { GoogleGenAI, Type } from "@google/genai";
+import Anthropic from "@anthropic-ai/sdk";
+import { z } from "zod/v4";
+import { zodOutputFormat } from "@anthropic-ai/sdk/helpers/zod";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const PORT = process.env.PORT || 3000;
@@ -10,9 +12,9 @@ const STORY_COUNT = 5;
 const HN_API = "https://hacker-news.firebaseio.com/v0";
 const ARTICLE_FETCH_TIMEOUT_MS = 5000;
 const ARTICLE_TEXT_MAX_CHARS = 500;
-const GEMINI_MODEL = process.env.GEMINI_MODEL || "gemini-flash-latest";
+const CLAUDE_MODEL = process.env.CLAUDE_MODEL || "claude-opus-5";
 
-const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
+const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 
 async function fetchTopStories() {
   const idsRes = await fetch(`${HN_API}/topstories.json`);
@@ -47,50 +49,41 @@ async function fetchArticleText(url) {
   }
 }
 
-const INDUSTRY_RESPONSE_SCHEMA = {
-  type: Type.OBJECT,
-  properties: {
-    industry: {
-      type: Type.STRING,
-      description: "The single industry most relevant to this story, e.g. Healthcare, Finance, Retail, Manufacturing, Cybersecurity.",
-    },
-    summary: {
-      type: Type.STRING,
-      description: "Exactly two sentences explaining concretely why this story matters for that industry.",
-    },
-  },
-  required: ["industry", "summary"],
-};
+const IndustryAnalysisSchema = z.object({
+  industry: z.string().describe("The single industry most relevant to this story, e.g. Healthcare, Finance, Retail, Manufacturing, Cybersecurity."),
+  summary: z.string().describe("Exactly two sentences explaining concretely why this story matters for that industry."),
+});
 
 async function analyzeStory(story, articleText) {
   console.log(`[HN source] Story ${story.id} "${story.title}" — url: ${story.url || "(none, self-post)"}`);
 
   const sourceText = articleText || story.text || "";
   const sourceKind = articleText ? "article" : story.text ? "HN self-post text" : "title only";
-  console.log(`[HN source] Story ${story.id}: using ${sourceKind} as Gemini input (${sourceText.length} chars).`);
+  console.log(`[HN source] Story ${story.id}: using ${sourceKind} as Claude input (${sourceText.length} chars).`);
 
   const prompt = sourceText
     ? `Story title: "${story.title}"\n\nArticle content (may be partial or malformed):\n${sourceText}\n\nInfer the single industry most relevant to this story, and write exactly two sentences explaining concretely why this story matters for that industry.`
     : `Story title: "${story.title}"\n\nNo article content is available. From the title alone, infer the single industry most relevant to this story, and write exactly two sentences giving your best guess at why this story matters for that industry.`;
-  console.log(`[Gemini] Story ${story.id}: sending ${prompt.length}-char prompt to model "${GEMINI_MODEL}".`);
+  console.log(`[Claude] Story ${story.id}: sending ${prompt.length}-char prompt to model "${CLAUDE_MODEL}".`);
 
   try {
-    const response = await ai.models.generateContent({
-      model: GEMINI_MODEL,
-      contents: prompt,
-      config: {
-        responseMimeType: "application/json",
-        responseSchema: INDUSTRY_RESPONSE_SCHEMA,
+    const response = await client.messages.parse({
+      model: CLAUDE_MODEL,
+      max_tokens: 512,
+      output_config: {
+        format: zodOutputFormat(IndustryAnalysisSchema),
+        effort: "low",
       },
+      messages: [{ role: "user", content: prompt }],
     });
-    console.log(`[Gemini] Story ${story.id}: received ${response.text?.length ?? 0}-char response.`);
-    const parsed = JSON.parse(response.text);
-    if (!parsed.industry || !parsed.summary) {
-      throw new Error(`Gemini response was missing industry or summary. Raw response: ${response.text}`);
+    console.log(`[Claude] Story ${story.id}: received response, stop_reason: ${response.stop_reason}.`);
+    if (!response.parsed_output) {
+      throw new Error(`Claude response could not be parsed against the schema (stop_reason: ${response.stop_reason}).`);
     }
-    return { industry: parsed.industry, summary: parsed.summary, summaryFailed: false };
+    const { industry, summary } = response.parsed_output;
+    return { industry, summary, summaryFailed: false };
   } catch (err) {
-    console.error(`[Gemini] Story ${story.id} FAILED — model: "${GEMINI_MODEL}", name: ${err.name}, status: ${err.status ?? "n/a"}, message: ${err.message}`);
+    console.error(`[Claude] Story ${story.id} FAILED — model: "${CLAUDE_MODEL}", name: ${err.name}, status: ${err.status ?? "n/a"}, message: ${err.message}`);
     return { industry: null, summary: null, summaryFailed: true };
   }
 }
@@ -109,11 +102,11 @@ async function streamStoriesWithSummaries(res) {
     story.url ? fetchArticleText(story.url) : Promise.resolve(null)
   );
 
-  // Gemini calls stay sequential (one in flight at a time) — running all 5
-  // at once was bursting past Gemini's rate limit — and stories are still
+  // Claude calls stay sequential (one in flight at a time) — running all 5
+  // at once risks bursting past a rate limit — and stories are still
   // emitted in the original top-5 ranking order. By the time the loop
   // reaches story i, its article fetch has usually already finished in the
-  // background while earlier stories' Gemini calls were running, so this
+  // background while earlier stories' Claude calls were running, so this
   // await is often instant instead of adding its own wait.
   for (let i = 0; i < stories.length; i++) {
     const story = stories[i];
