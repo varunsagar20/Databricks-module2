@@ -20,11 +20,17 @@ Then open http://localhost:3000 in your browser.
 ### How it works
 
 - `server.js` fetches the top 5 story IDs from `https://hacker-news.firebaseio.com/v0/topstories.json`,
-  loads each story's details, best-effort fetches the linked article text, and
-  asks Gemini (`gemini-flash-latest`) for structured JSON output — an inferred
-  `industry` and a 2-sentence relevance `summary` — per story. `/api/stories`
-  streams each story as a line of NDJSON as soon as it's ready, instead of
-  waiting for all 5 to finish and sending one big JSON array.
+  loads each story's details, and kicks off all 5 article-text fetches
+  concurrently (independent websites, no shared rate limit). Gemini calls
+  stay sequential — one in flight at a time, in the original ranking order —
+  since running all 5 at once bursts past Gemini's rate limit; each story's
+  article fetch has usually already finished in the background by the time
+  its turn comes up, so the concurrent fetching hides most of that latency
+  behind the Gemini calls instead of adding to it. Gemini (`gemini-flash-latest`)
+  returns structured JSON output — an inferred `industry` and a 2-sentence
+  relevance `summary` — per story. `/api/stories` streams each story as a
+  line of NDJSON as soon as it's ready, instead of waiting for all 5 to
+  finish and sending one big JSON array.
 - `index.html` reads that stream and appends each story's card to the page
   the moment it arrives — title, points/author, comment count, a
   target-industry badge, and the relevance summary — with a live

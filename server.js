@@ -9,6 +9,7 @@ const PORT = process.env.PORT || 3000;
 const STORY_COUNT = 5;
 const HN_API = "https://hacker-news.firebaseio.com/v0";
 const ARTICLE_FETCH_TIMEOUT_MS = 5000;
+const ARTICLE_TEXT_MAX_CHARS = 500;
 const GEMINI_MODEL = process.env.GEMINI_MODEL || "gemini-flash-latest";
 
 const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
@@ -37,7 +38,7 @@ async function fetchArticleText(url) {
       .replace(/<[^>]+>/g, " ")
       .replace(/\s+/g, " ")
       .trim()
-      .slice(0, 4000);
+      .slice(0, ARTICLE_TEXT_MAX_CHARS);
     console.log(`[HN source] Extracted ${text.length} chars from ${url}. Preview: ${JSON.stringify(text.slice(0, 200))}`);
     return text;
   } catch (err) {
@@ -61,10 +62,9 @@ const INDUSTRY_RESPONSE_SCHEMA = {
   required: ["industry", "summary"],
 };
 
-async function analyzeStory(story) {
+async function analyzeStory(story, articleText) {
   console.log(`[HN source] Story ${story.id} "${story.title}" — url: ${story.url || "(none, self-post)"}`);
 
-  const articleText = story.url ? await fetchArticleText(story.url) : null;
   const sourceText = articleText || story.text || "";
   const sourceKind = articleText ? "article" : story.text ? "HN self-post text" : "title only";
   console.log(`[HN source] Story ${story.id}: using ${sourceKind} as Gemini input (${sourceText.length} chars).`);
@@ -101,12 +101,24 @@ async function streamStoriesWithSummaries(res) {
   const stories = await fetchTopStories();
   res.writeHead(200, { "Content-Type": "application/x-ndjson" });
 
-  // Sequential, not Promise.all: analyzeStory() calls Gemini, and running all
-  // 5 at once was bursting past the API's rate limit. Each story is written
-  // to the response as soon as it's ready, so the page can render it
-  // immediately instead of waiting for all 5 to finish.
-  for (const story of stories) {
-    const { industry, summary, summaryFailed } = await analyzeStory(story);
+  // Kick off all 5 article fetches concurrently right away — they're 5
+  // independent websites with no shared rate limit, so there's no reason
+  // to fetch them one at a time. Each promise starts running immediately;
+  // we don't await it here yet.
+  const articleFetches = stories.map((story) =>
+    story.url ? fetchArticleText(story.url) : Promise.resolve(null)
+  );
+
+  // Gemini calls stay sequential (one in flight at a time) — running all 5
+  // at once was bursting past Gemini's rate limit — and stories are still
+  // emitted in the original top-5 ranking order. By the time the loop
+  // reaches story i, its article fetch has usually already finished in the
+  // background while earlier stories' Gemini calls were running, so this
+  // await is often instant instead of adding its own wait.
+  for (let i = 0; i < stories.length; i++) {
+    const story = stories[i];
+    const articleText = await articleFetches[i];
+    const { industry, summary, summaryFailed } = await analyzeStory(story, articleText);
     res.write(JSON.stringify({
       id: story.id,
       title: story.title,
