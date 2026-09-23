@@ -79,6 +79,42 @@
     font-size: 14px;
   }
 
+  .layout-toggle {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin: 0 0 14px;
+    font-size: 13px;
+    color: var(--ink-soft);
+  }
+
+  .layout-toggle .group {
+    display: inline-flex;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    overflow: hidden;
+  }
+
+  .layout-btn {
+    font: inherit;
+    font-size: 13px;
+    color: var(--ink-soft);
+    background: var(--card);
+    border: none;
+    padding: 5px 12px;
+    cursor: pointer;
+  }
+
+  .layout-btn + .layout-btn {
+    border-left: 1px solid var(--border);
+  }
+
+  .layout-btn.active {
+    background: var(--accent);
+    color: #fff;
+    font-weight: 600;
+  }
+
   ol#stories {
     list-style: none;
     margin: 0;
@@ -96,6 +132,23 @@
     margin-bottom: 14px;
     box-shadow: 0 1px 2px rgba(0, 0, 0, 0.03);
     transition: box-shadow 0.15s ease, transform 0.15s ease;
+  }
+
+  ol#stories.horizontal {
+    display: flex;
+    flex-direction: row;
+    align-items: stretch;
+    overflow-x: auto;
+    gap: 14px;
+    padding-bottom: 10px;
+    margin-bottom: 4px;
+    scrollbar-width: thin;
+  }
+
+  ol#stories.horizontal li {
+    flex: 0 0 280px;
+    max-width: 280px;
+    margin-bottom: 0;
   }
 
   ol#stories li:hover {
@@ -213,6 +266,14 @@
     <p class="byline">Created by: <strong>Varun Sagar</strong></p>
   </section>
 
+  <div class="layout-toggle">
+    Layout:
+    <span class="group" role="group" aria-label="Story layout">
+      <button type="button" id="layout-vertical" class="layout-btn">Vertical</button>
+      <button type="button" id="layout-horizontal" class="layout-btn">Horizontal</button>
+    </span>
+  </div>
+
   <p id="status">Loading stories and generating summaries...</p>
   <ol id="stories"></ol>
 
@@ -261,6 +322,35 @@
           ${renderSummarySection(story)}
         </li>
       `;
+    }
+
+    const LAYOUT_STORAGE_KEY = "hn-story-layout";
+
+    function setLayout(layout) {
+      const listEl = document.getElementById("stories");
+      const verticalBtn = document.getElementById("layout-vertical");
+      const horizontalBtn = document.getElementById("layout-horizontal");
+      listEl.classList.toggle("horizontal", layout === "horizontal");
+      verticalBtn.classList.toggle("active", layout !== "horizontal");
+      horizontalBtn.classList.toggle("active", layout === "horizontal");
+      try {
+        localStorage.setItem(LAYOUT_STORAGE_KEY, layout);
+      } catch {
+        // Private browsing / blocked storage — layout choice just won't persist.
+      }
+    }
+
+    function initLayoutToggle() {
+      let savedLayout = "vertical";
+      try {
+        savedLayout = localStorage.getItem(LAYOUT_STORAGE_KEY) || "vertical";
+      } catch {
+        // Ignore — default to vertical.
+      }
+      setLayout(savedLayout);
+
+      document.getElementById("layout-vertical").addEventListener("click", () => setLayout("vertical"));
+      document.getElementById("layout-horizontal").addEventListener("click", () => setLayout("horizontal"));
     }
 
     async function loadTopStories() {
@@ -324,6 +414,7 @@
       }
     }
 
+    initLayoutToggle();
     loadTopStories();
   </script>
 </body>
