@@ -209,15 +209,15 @@
   </header>
 
   <section class="about">
-    <p>This page fetches the current top 5 stories from Hacker News and, for each one, asks Google's Gemini to infer the industry it's most relevant to and explain why it matters for that industry.</p>
-    <p>Everything runs from a small local Node server — the Hacker News API needs no credentials, and Gemini calls happen server-side so no API key ever reaches the browser.</p>
+    <p>This page fetches the current top 5 stories from Hacker News and, for each one, asks Claude to infer the industry it's most relevant to and explain why it matters for that industry.</p>
+    <p>Everything runs from a small local Node server — the Hacker News API needs no credentials, and Claude calls happen server-side so no API key ever reaches the browser.</p>
     <p class="byline">Created by: <strong>Varun Sagar</strong></p>
   </section>
 
   <p id="status">Loading stories and generating summaries...</p>
   <ol id="stories"></ol>
 
-  <footer>Data via the Hacker News API · Summaries via Google Gemini</footer>
+  <footer>Data via the Hacker News API · Summaries via Claude</footer>
 
   <script>
     function escapeHtml(str) {
@@ -232,7 +232,7 @@
       if (story.summaryFailed) {
         return `
           <div class="summary summary-error">
-            ⚠️ Google's Gemini API failed to generate a summary for this story.
+            ⚠️ Claude failed to generate a summary for this story.
             Read the article directly:
             <a href="${escapeHtml(story.url)}" target="_blank" rel="noopener">${escapeHtml(story.url)}</a>
           </div>
