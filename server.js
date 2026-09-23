@@ -12,7 +12,7 @@ const STORY_COUNT = 5;
 const HN_API = "https://hacker-news.firebaseio.com/v0";
 const ARTICLE_FETCH_TIMEOUT_MS = 5000;
 const ARTICLE_TEXT_MAX_CHARS = 500;
-const CLAUDE_MODEL = process.env.CLAUDE_MODEL || "claude-opus-5";
+const CLAUDE_MODEL = process.env.CLAUDE_MODEL || "claude-haiku-4-5";
 
 const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 
@@ -70,9 +70,10 @@ async function analyzeStory(story, articleText) {
     const response = await client.messages.parse({
       model: CLAUDE_MODEL,
       max_tokens: 512,
+      // No output_config.effort here: it's Opus-tier only and errors on
+      // Haiku 4.5 (the default model here), so it can't be a fixed value.
       output_config: {
         format: zodOutputFormat(IndustryAnalysisSchema),
-        effort: "low",
       },
       messages: [{ role: "user", content: prompt }],
     });

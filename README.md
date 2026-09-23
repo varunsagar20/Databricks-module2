@@ -26,11 +26,13 @@ Then open http://localhost:3000 in your browser.
   to avoid bursting past a rate limit; each story's article fetch has
   usually already finished in the background by the time its turn comes up,
   so the concurrent fetching hides most of that latency behind the Claude
-  calls instead of adding to it. Claude (`claude-opus-5`) returns structured
-  output via `client.messages.parse()` — an inferred `industry` and a
-  2-sentence relevance `summary` — per story. `/api/stories` streams each
-  story as a line of NDJSON as soon as it's ready, instead of waiting for
-  all 5 to finish and sending one big JSON array.
+  calls instead of adding to it. Claude (`claude-haiku-4-5` by default — the
+  cheapest current model, since this is a small classification/summarization
+  task; override with the `CLAUDE_MODEL` env var, e.g. `claude-opus-5`)
+  returns structured output via `client.messages.parse()` — an inferred
+  `industry` and a 2-sentence relevance `summary` — per story. `/api/stories`
+  streams each story as a line of NDJSON as soon as it's ready, instead of
+  waiting for all 5 to finish and sending one big JSON array.
 - `index.html` reads that stream and appends each story's card to the page
   the moment it arrives — title, points/author, comment count, a
   target-industry badge, and the relevance summary — with a live
