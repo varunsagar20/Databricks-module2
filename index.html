@@ -226,6 +226,11 @@
     }
 
     const EXPECTED_STORY_COUNT = 5;
+    // Generous per-story budget (article fetch + a Claude call can both be
+    // slow) times the story count, so the whole request has a bounded
+    // timeout instead of waiting forever if the server hangs.
+    const PER_STORY_TIMEOUT_MS = 20000;
+    const TOTAL_TIMEOUT_MS = PER_STORY_TIMEOUT_MS * EXPECTED_STORY_COUNT;
 
     function renderSummarySection(story) {
       if (story.summaryFailed) {
@@ -263,8 +268,11 @@
       const listEl = document.getElementById("stories");
       let loadedCount = 0;
 
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), TOTAL_TIMEOUT_MS);
+
       try {
-        const response = await fetch("/api/stories");
+        const response = await fetch("/api/stories", { signal: controller.signal });
         if (!response.ok) {
           throw new Error((await response.json()).error || response.statusText);
         }
@@ -272,6 +280,8 @@
         // The server streams one JSON object per line (NDJSON) as each
         // story finishes, instead of one big array at the end, so each
         // story appears as soon as it's ready rather than all at once.
+        // This loop terminates when the server ends the response (done
+        // becomes true) or via the abort signal above if it hangs.
         const reader = response.body.getReader();
         const decoder = new TextDecoder();
         let buffer = "";
@@ -300,12 +310,17 @@
           statusEl.remove();
         }
       } catch (err) {
+        const message = err.name === "AbortError"
+          ? `Timed out after ${TOTAL_TIMEOUT_MS / 1000}s waiting for stories — the server may be stuck.`
+          : err.message;
         if (loadedCount === 0) {
-          statusEl.textContent = "Failed to load stories: " + err.message;
+          statusEl.textContent = "Failed to load stories: " + message;
         } else {
           console.error("Failed to load remaining stories:", err);
-          statusEl.textContent = `Loaded ${loadedCount} of ${EXPECTED_STORY_COUNT} stories — the rest failed to load.`;
+          statusEl.textContent = `Loaded ${loadedCount} of ${EXPECTED_STORY_COUNT} stories — the rest failed to load (${message}).`;
         }
+      } finally {
+        clearTimeout(timeoutId);
       }
     }
 
